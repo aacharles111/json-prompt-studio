@@ -1,7 +1,7 @@
 'use client';
 
 import { useStore } from '@/lib/store';
-import { Eye, EyeOff, ChevronUp, ChevronDown, Type, Box } from 'lucide-react';
+import { ChevronUp, ChevronDown, Type, Box, Check } from 'lucide-react';
 
 export default function Layers() {
   const elements = useStore((s) => s.elements);
@@ -12,9 +12,8 @@ export default function Layers() {
 
   if (elements.length === 0) {
     return (
-      <div className="p-4 text-slate-500 text-sm text-center">
-        <p className="mt-4">No elements yet</p>
-        <p className="mt-1 text-xs">Add objects or text using the toolbar</p>
+      <div className="text-slate-600 text-[11px] text-center py-3">
+        No elements yet. Add objects or text using the toolbar.
       </div>
     );
   }
@@ -29,63 +28,56 @@ export default function Layers() {
         return (
           <div
             key={el.id}
-            onClick={() => selectElement(el.id)}
-            className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors rounded text-xs ${
-              isSelected
-                ? 'bg-cyan-500/10 border border-cyan-500/30'
-                : 'hover:bg-slate-800/50 border border-transparent'
+            className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer transition-colors ${
+              isSelected ? 'bg-cyan-500/10 border border-cyan-500/30' : 'hover:bg-slate-800/50 border border-transparent'
             }`}
+            onClick={() => selectElement(el.id)}
           >
+            {/* Checkbox */}
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleElement(el.id);
+              }}
+              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${
+                el.enabled
+                  ? 'bg-cyan-500 border-cyan-400'
+                  : 'bg-slate-700 border-slate-600'
+              }`}
+            >
+              {el.enabled && <Check className="w-3 h-3 text-white" />}
+            </span>
+
             {/* Type icon */}
-            <span className="text-slate-500">
+            <span className="text-slate-500 flex-shrink-0">
               {el.type === 'text' ? (
-                <Type className="w-3.5 h-3.5 text-purple-400" />
+                <Type className="w-3 h-3 text-purple-400" />
               ) : (
-                <Box className="w-3.5 h-3.5 text-cyan-400" />
+                <Box className="w-3 h-3 text-cyan-400" />
               )}
             </span>
 
-            {/* Color swatch */}
-            <span
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: el.ui, opacity: el.enabled ? 1 : 0.3 }}
-            />
-
             {/* Label */}
-            <span className={`flex-1 truncate ${el.enabled ? 'text-slate-300' : 'text-slate-600 line-through'}`}>
+            <span
+              className={`flex-1 text-[11px] truncate ${el.enabled ? 'text-slate-300' : 'text-slate-600 line-through'}`}
+            >
               {el.label || (el.type === 'text' ? 'Text' : 'Object')}
             </span>
 
             {/* Variable marker */}
             {el.variable && el.variable.length > 0 && (
-              <span className="text-[10px] text-amber-400" title="Variable">✦</span>
+              <span className="text-[10px] text-amber-400 flex-shrink-0" title="Variable">✦</span>
             )}
 
-            {/* Visibility toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleElement(el.id);
-              }}
-              className="p-0.5 rounded hover:bg-slate-700"
-              title={el.enabled ? 'Hide' : 'Show'}
-            >
-              {el.enabled ? (
-                <Eye className="w-3 h-3 text-slate-500" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-red-400" />
-              )}
-            </button>
-
             {/* Reorder buttons */}
-            <div className="flex flex-col -space-y-1">
+            <div className="flex flex-col -space-y-0.5 flex-shrink-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isFirst) reorderElements(i, i - 1);
                 }}
                 disabled={isFirst}
-                className="p-0 rounded hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-0 rounded hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronUp className="w-3 h-3 text-slate-500" />
               </button>
@@ -95,7 +87,7 @@ export default function Layers() {
                   if (!isLast) reorderElements(i, i + 1);
                 }}
                 disabled={isLast}
-                className="p-0 rounded hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-0 rounded hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronDown className="w-3 h-3 text-slate-500" />
               </button>
@@ -103,9 +95,6 @@ export default function Layers() {
           </div>
         );
       })}
-      <p className="text-[10px] text-slate-600 px-3 pt-1">
-        Elements earlier in the list are drawn behind later ones
-      </p>
     </div>
   );
 }

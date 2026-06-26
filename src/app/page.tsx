@@ -6,10 +6,20 @@ import Canvas from '@/components/Canvas';
 import StylePanel from '@/components/StylePanel';
 import Inspector from '@/components/Inspector';
 import Layers from '@/components/Layers';
+import VariablesPanel from '@/components/VariablesPanel';
+import TrueFalsePanel from '@/components/TrueFalsePanel';
 import JsonPanel from '@/components/JsonPanel';
 import ImportModal from '@/components/ImportModal';
 import SettingsModal from '@/components/SettingsModal';
 import { useStore } from '@/lib/store';
+
+const COLORS_GRID = [
+  '#FFFFFF', '#F5F5F0', '#E8E0D5', '#D4C9B8', '#C0B0A0', '#A09080',
+  '#FFD700', '#F4A460', '#FF8C00', '#FF6347', '#FF4500', '#DC143C',
+  '#FF69B4', '#FF1493', '#C71585', '#DDA0DD', '#9370DB', '#8A2BE2',
+  '#4169E1', '#1E90FF', '#00BFFF', '#00CED1', '#20B2AA', '#3CB371',
+  '#228B22', '#556B2F', '#8B4513', '#A0522D', '#696969', '#2F4F4F',
+];
 
 export default function Home() {
   const [importOpen, setImportOpen] = useState(false);
@@ -139,7 +149,6 @@ export default function Home() {
     store.setBackground('A natural environment matching the scene description.');
   }, []);
 
-  // Auto-Process: takes the high level description and generates a suggested layout
   const handleProcess = useCallback(async () => {
     const desc = highLevelDescription.trim();
     if (!desc) {
@@ -158,7 +167,6 @@ export default function Home() {
         let responseText = '';
 
         if (settings.provider === 'gemini') {
-          // Gemini API v1beta generateContent — key as query parameter
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`;
           const systemPrompt = `You are a scene layout expert for Ideogram-4 image generation. Given a text description, produce a JSON object with:
 - "aspect_ratio": the best aspect ratio for this scene (choose from: 16:9, 9:16, 1:1, 4:5, 3:2, 2:3, 4:3, 3:4, 21:9, 5:4)
@@ -189,7 +197,6 @@ Return ONLY the JSON, no explanation. The JSON must be parseable.`;
           const data = await res.json();
           responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
-          // OpenAI API
           const endpoint = 'https://api.openai.com/v1/chat/completions';
           const systemPrompt = `You are a scene layout expert for Ideogram-4 image generation. Given a text description, produce a JSON object with:
 - "aspect_ratio": the best aspect ratio for this scene (choose from: 16:9, 9:16, 1:1, 4:5, 3:2, 2:3, 4:3, 3:4, 21:9, 5:4)
@@ -280,55 +287,93 @@ Return ONLY the JSON, no explanation.`;
 
       {/* Main content: 3-column layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel — Description + Style */}
-        <div className="w-72 flex-shrink-0 border-r border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-slate-700 space-y-2">
-            <div>
-              <label className="block text-[10px] uppercase text-slate-500 mb-1">Scene Description</label>
+        {/* LEFT PANEL — Main Prompt + Variables + True/False + Style */}
+        <div className="w-64 flex-shrink-0 border-r border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
+            {/* Main Prompt — combined scene + background */}
+            <div className="space-y-2">
+              <h3 className="text-[10px] uppercase text-slate-500 font-semibold">Main Prompt</h3>
               <textarea
                 value={highLevelDescription}
                 onChange={(e) => setHighLevelDescription(e.target.value)}
-                rows={2}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 resize-none"
-                placeholder="Describe your scene in one sentence..."
+                rows={3}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 resize-none"
+                placeholder="Image of an orange cat, sitting on a dining table and there is a large book shelf in the back and there is a flower vase in the bookshelf and a chair in the foreground, realistic, house interior."
               />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase text-slate-500 mb-1">Background</label>
               <input
                 type="text"
                 value={background}
                 onChange={(e) => setBackground(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
-                placeholder="e.g. A smooth matte gray wall and polished floor..."
+                placeholder="Background (walls, floor, sky...)"
               />
             </div>
-          </div>
 
-          {/* Style Panel */}
-          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-            <StylePanel />
+            {/* Variables */}
+            <div className="border-t border-slate-700 pt-3">
+              <VariablesPanel />
+            </div>
+
+            {/* True or False */}
+            <div className="border-t border-slate-700 pt-3">
+              <TrueFalsePanel />
+            </div>
+
+            {/* Style */}
+            <div className="border-t border-slate-700 pt-3">
+              <StylePanel />
+            </div>
           </div>
         </div>
 
-        {/* Center — Canvas */}
-        <div ref={centerRef} className="flex-1 p-4 bg-slate-950 overflow-hidden">
-          <Canvas width={canvasDims.width} height={canvasDims.height} />
+        {/* CENTER — Canvas (Box Mode) */}
+        <div ref={centerRef} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 p-4 bg-slate-950">
+            <Canvas width={canvasDims.width} height={canvasDims.height} />
+          </div>
+
+          {/* Colors grid + Layers below canvas */}
+          <div className="flex border-t border-slate-700 bg-slate-900" style={{ height: '160px' }}>
+            {/* Colors */}
+            <div className="w-48 flex-shrink-0 border-r border-slate-700 p-3 overflow-y-auto custom-scrollbar">
+              <h3 className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Colors</h3>
+              <div className="grid grid-cols-6 gap-1">
+                {COLORS_GRID.map((hex) => (
+                  <button
+                    key={hex}
+                    className="w-6 h-6 rounded border border-slate-600 hover:scale-110 hover:border-white transition-all"
+                    style={{ backgroundColor: hex }}
+                    title={hex}
+                    onClick={() => {
+                      const el = useStore.getState().elements.find((e) => e.id === useStore.getState().selectedElementId);
+                      if (el) {
+                        const palette = el.palette || [];
+                        const next = palette.includes(hex)
+                          ? palette.filter((c) => c !== hex)
+                          : [...palette, hex].slice(0, 5);
+                        useStore.getState().updateElement(el.id, { palette: next });
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Layers */}
+            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
+              <h3 className="text-[10px] uppercase text-slate-500 font-semibold mb-2">Layers</h3>
+              <Layers />
+            </div>
+          </div>
         </div>
 
-        {/* Right Panel — Inspector + Layers */}
-        <div className="w-72 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto custom-scrollbar border-b border-slate-700">
+        {/* RIGHT PANEL — Inspector */}
+        <div className="w-64 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             <div className="p-2 border-b border-slate-800">
               <h3 className="text-[10px] uppercase text-slate-500 font-semibold px-1">Inspector</h3>
             </div>
             <Inspector />
-          </div>
-          <div className="h-56 overflow-y-auto custom-scrollbar">
-            <div className="p-2 border-b border-slate-800">
-              <h3 className="text-[10px] uppercase text-slate-500 font-semibold px-1">Layers</h3>
-            </div>
-            <Layers />
           </div>
         </div>
       </div>
