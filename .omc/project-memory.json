@@ -1,0 +1,300 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1782506279268,
+  "projectRoot": "C:\\Users\\Charles\\Desktop\\Projects\\Prompt studio\\prompt-studio",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "16.2.9",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "19.2.4",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.2.4",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "cd /c/Users/Charles/Desktop/Projects/Prompt\\ studio/prompt-studio && npm run build 2>&1",
+    "testCommand": null,
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "eslint"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 5,
+      "lastAccessed": 1782506279224,
+      "keyFiles": [
+        "file.svg",
+        "globe.svg",
+        "next.svg",
+        "vercel.svg",
+        "window.svg"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1782506279234,
+      "keyFiles": []
+    },
+    "src\\app": {
+      "path": "src\\app",
+      "purpose": "Application code",
+      "fileCount": 4,
+      "lastAccessed": 1782506279236,
+      "keyFiles": [
+        "favicon.ico",
+        "globals.css",
+        "layout.tsx"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src\\app\\page.tsx",
+      "accessCount": 14,
+      "lastAccessed": 1782507448770,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\import.ts",
+      "accessCount": 12,
+      "lastAccessed": 1782507496133,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\layout.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1782506980686,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\globals.css",
+      "accessCount": 5,
+      "lastAccessed": 1782506981058,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\Canvas.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1782507285852,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\store.ts",
+      "accessCount": 4,
+      "lastAccessed": 1782506973238,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\TopBar.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1782507214645,
+      "type": "file"
+    },
+    {
+      "path": "ARCHITECTURE_PROMPT.txt",
+      "accessCount": 3,
+      "lastAccessed": 1782506967547,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 3,
+      "lastAccessed": 1782506967680,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\Inspector.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1782506980119,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\ImportModal.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1782506980625,
+      "type": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 3,
+      "lastAccessed": 1782506986382,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 3,
+      "lastAccessed": 1782506986411,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1782506990524,
+      "type": "directory"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 2,
+      "lastAccessed": 1782506460090,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 2,
+      "lastAccessed": 1782506461216,
+      "type": "file"
+    },
+    {
+      "path": "AGENTS.md",
+      "accessCount": 2,
+      "lastAccessed": 1782506967641,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1782506973162,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\compile.ts",
+      "accessCount": 2,
+      "lastAccessed": 1782506973388,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\presets.ts",
+      "accessCount": 2,
+      "lastAccessed": 1782506973456,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\JsonPanel.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1782506980322,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\Layers.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1782506980444,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\StylePanel.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1782506980566,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\SettingsModal.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1782506980650,
+      "type": "file"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "accessCount": 2,
+      "lastAccessed": 1782506986442,
+      "type": "file"
+    },
+    {
+      "path": "eslint.config.mjs",
+      "accessCount": 1,
+      "lastAccessed": 1782506460119,
+      "type": "file"
+    },
+    {
+      "path": "next-env.d.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782506461426,
+      "type": "file"
+    },
+    {
+      "path": "BUILD_ARCHITECTURE.bat",
+      "accessCount": 1,
+      "lastAccessed": 1782506461509,
+      "type": "file"
+    },
+    {
+      "path": "BUILD_LOG.txt",
+      "accessCount": 1,
+      "lastAccessed": 1782506461548,
+      "type": "file"
+    },
+    {
+      "path": "RUN_ARCHITECTURE.ps1",
+      "accessCount": 1,
+      "lastAccessed": 1782506461596,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1782506663617,
+      "type": "directory"
+    },
+    {
+      "path": "src\\lib\\index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782506973476,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

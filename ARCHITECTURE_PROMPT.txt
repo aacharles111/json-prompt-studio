@@ -1,0 +1,202 @@
+You are building JSON Prompt Studio — a visual web app for creating structured JSON image prompts for Ideogram-4. This is a Next.js 16 + React 19 + TypeScript + Tailwind CSS v4 project at:
+C:\Users\Charles\Desktop\Projects\Prompt studio\prompt-studio
+
+The project uses src/ directory, App Router. Packages installed: zustand, konva, react-konva, lucide-react, uuid.
+
+CRITICAL RULES:
+- Use TypeScript only, never plain JS
+- Run 'npm run build' after changes to verify compilation
+- Tailwind v4 uses @import 'tailwindcss' in globals.css and @tailwindcss/postcss plugin. Do NOT use old @tailwind directives
+- NEVER delete or overwrite existing config files (next.config.ts, tsconfig.json, postcss.config.mjs, etc.)
+- Always create new files under src/
+
+ARCHITECTURE — Create these files:
+
+### FILE 1: src/lib/types.ts
+All TypeScript interfaces:
+```typescript
+export type ElementType = 'obj' | 'text';
+export type StyleMode = 'none' | 'photo' | 'art';
+export type PresetCategory = 'photography' | 'art' | 'cinematic';
+
+export interface Element {
+  id: string;
+  type: ElementType;
+  label: string;
+  desc: string;
+  text: string; // verbatim rendered text, text-type only
+  x: number; y: number; w: number; h: number; // 0-1 fractions
+  palette: string[];
+  enabled: boolean;
+  ui: string; // display color on canvas
+  variable: string[] | null;
+}
+
+export interface StyleState {
+  mode: StyleMode;
+  presetId: string | null;
+  presetName: string;
+  aesthetics: string;
+  lighting: string;
+  medium: string;
+  photo: string;
+  art_style: string;
+  color_palette: string[];
+}
+
+export interface StylePreset {
+  id: string;
+  name: string;
+  category: PresetCategory;
+  mode: StyleMode;
+  aesthetics: string;
+  lighting: string;
+  medium: string;
+  photo?: string;
+  art_style?: string;
+  color_palette: string[];
+}
+
+export interface Settings {
+  provider: 'gemini' | 'openai';
+  apiKey: string;
+  model: string;
+  darkMode: boolean;
+  outputFormat: 'minified' | 'pretty';
+  importMode: 'ask' | 'always';
+}
+
+export interface AppState {
+  aspectRatio: string;
+  includeAspectRatio: boolean;
+  highLevelDescription: string;
+  background: string;
+  style: StyleState;
+  boxPrecision: boolean;
+  elements: Element[];
+  selectedElementId: string | null;
+  importHash: string;
+  settings: Settings;
+}
+
+// Output schema types
+export interface CaptionElement {
+  type: ElementType;
+  bbox?: [number, number, number, number]; // [y1,x1,y2,x2] 0-1000
+  text?: string;
+  desc: string;
+  color_palette?: string[];
+}
+
+export interface CompositionalDeconstruction {
+  background: string;
+  elements: CaptionElement[];
+}
+
+export interface StyleDescription {
+  aesthetics: string;
+  lighting: string;
+  medium: string;
+  photo?: string;
+  art_style?: string;
+  color_palette?: string[];
+}
+
+export interface IdeogramCaption {
+  aspect_ratio?: string;
+  high_level_description: string;
+  style_description?: StyleDescription;
+  compositional_deconstruction: CompositionalDeconstruction;
+}
+```
+
+### FILE 2: src/lib/store.ts
+Zustand store with ALL state and actions. Key features:
+- Single normalized store with AppState
+- Actions: addElement, updateElement, deleteElement, clearAll, moveElement, resizeElement, reorderElements, toggleElement, setVariable, selectElement, setAspectRatio, setStyleMode, setStyleField, setSettings, importCaption, exportProject, loadProject
+- Auto-save: subscribe to changes, debounce 500ms, save to localStorage key 'jps-project'
+- Auto-load: hydrate from localStorage on creation if key exists
+- selectedElementId managed as part of state
+- addElement creates new elements with sensible defaults at the given position
+
+### FILE 3: src/lib/compile.ts
+Pure compilation functions:
+```typescript
+// Convert 0-1 fractional coords to 0-1000 grid [y1,x1,y2,x2]
+export function normBbox(el: { x: number; y: number; w: number; h: number }): [number, number, number, number]
+
+// Cartesian product of variable elements, capped at 10 combos
+export function expandVariables(elements: Element[]): Element[][]
+
+// Assemble the full IdeogramCaption from state
+export function assembleCaption(state: AppState): IdeogramCaption
+
+// Minify JSON string (single-line, no spaces, preserve non-ASCII)
+export function minifyCaption(caption: IdeogramCaption): string
+
+// Full compile pipeline: expand → filter disabled → order by layer → normBbox if precision → assemble → minify → return string[]
+export function compile(state: AppState): string[]
+```
+Implement these with complete logic. The normBbox: y1=round(y*1000), x1=round(x*1000), y2=round((y+h)*1000), x2=round((x+w)*1000), clamp 0-1000, ensure y1<y2 and x1<x2.
+
+### FILE 4: src/lib/presets.ts
+Export PRESETS: StylePreset[] with 55 presets. Each must have complete realistic prose. Here are 10 FULLY DETAILED presets, create the remaining 45 with shorter but still realistic prose:
+
+(Same 10 full presets as before plus 45 placeholder-quality presets with realistic 1-line descriptions)
+
+### FILE 5: src/lib/import.ts
+Import/export utilities:
+```typescript
+// FNV-1a 32-bit hash for change detection (matching the Deno node's _import_sig)
+export function fnv1a32(text: string): string
+
+// Lenient 3-strategy parse: raw JSON → fenced block → brace-span
+export function loadsCaption(raw: string): IdeogramCaption | null
+
+// Hydrate app state from an imported caption
+export function hydrateFromCaption(caption: IdeogramCaption, currentState: AppState): Partial<AppState>
+```
+
+### FILE 6: src/components/Canvas.tsx
+'use client' — Konva-based visual box editor
+- Stage + Layer with aspect-ratio-constrained container
+- Background grid, elements as Rect with labels
+- Drag to move, Transformer for resize on selection
+- Disabled elements at 30% opacity
+- Click empty canvas → deselect
+- Convert between pixel and fractional coordinates
+
+### FILE 7: src/components/Inspector.tsx
+'use client' — Right panel element editor
+- Shows when element selected: label, desc, text (text-type only), palette picker, enabled toggle, live bbox readout, type badge, delete button, "Make variable" button
+
+### FILE 8: src/components/Layers.tsx
+'use client' — Layer list with reorder (up/down arrows), click to select, visibility toggle, markers
+
+### FILE 9: src/components/StylePanel.tsx
+'use client' — Left panel: mode selector (Neutral/Photo/Art), preset grid (categorized), editable style fields
+
+### FILE 10: src/components/JsonPanel.tsx
+'use client' — Bottom dock: Minified/Pretty/All Combos tabs, live JSON, copy + export buttons, basic syntax highlighting
+
+### FILE 11: src/components/TopBar.tsx
+'use client' — Top bar: aspect dropdown, aspect toggle, combo counter, box precision toggle, Add Object/Text buttons, dark mode toggle, auto-save indicator, import/settings buttons
+
+### FILE 12: src/components/ImportModal.tsx
+'use client' — Modal: paste JSON, parse & preview, confirm import, mode selector
+
+### FILE 13: src/components/SettingsModal.tsx
+'use client' — Modal: provider, API key, model, output format, import mode, system prompts
+
+### FILE 14: src/app/layout.tsx
+Root layout with metadata, dark mode class, provider wrapper
+
+### FILE 15: src/app/page.tsx
+Main page: three-column layout with all panels, responsive min-width 1280px
+
+### FILE 16: src/app/globals.css
+Keep existing Tailwind v4 setup. Add: canvas container, dark mode variables, custom scrollbar, preset card styles, syntax highlighting colors.
+
+DESIGN: Dark mode default. Colors: primary cyan-600 (#0891B2), bg slate-900 (#0F172A), panel bg slate-800 (#1E293B), borders slate-700 (#334155), text slate-50 (#F8FAFC), muted slate-400 (#94A3B8). Inter font stack. Rounded: lg panels, md buttons, full toggles.
+
+START: Create ALL files listed above, then run 'npm run build'. Fix ALL TypeScript and build errors iteratively. Write build output to BUILD_LOG.txt. When done, write "BUILD SUCCESS" to DONE.txt.

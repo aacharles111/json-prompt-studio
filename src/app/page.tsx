@@ -1,65 +1,344 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useCallback, useRef, useEffect } from 'react';
+import TopBar from '@/components/TopBar';
+import Canvas from '@/components/Canvas';
+import StylePanel from '@/components/StylePanel';
+import Inspector from '@/components/Inspector';
+import Layers from '@/components/Layers';
+import JsonPanel from '@/components/JsonPanel';
+import ImportModal from '@/components/ImportModal';
+import SettingsModal from '@/components/SettingsModal';
+import { useStore } from '@/lib/store';
 
 export default function Home() {
+  const [importOpen, setImportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [processStatus, setProcessStatus] = useState('');
+  const [canvasDims, setCanvasDims] = useState({ width: 800, height: 600 });
+  const centerRef = useRef<HTMLDivElement>(null);
+
+  const highLevelDescription = useStore((s) => s.highLevelDescription);
+  const setHighLevelDescription = useStore((s) => s.setHighLevelDescription);
+  const background = useStore((s) => s.background);
+  const setBackground = useStore((s) => s.setBackground);
+  const darkMode = useStore((s) => s.settings.darkMode);
+
+  // Sync dark mode to <html> class
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
+  // Track canvas container dimensions
+  useEffect(() => {
+    if (!centerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setCanvasDims({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(centerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  interface AIElement {
+    type?: string;
+    x?: number;
+    y?: number;
+    w?: number;
+    h?: number;
+    desc?: string;
+    text?: string;
+    color_palette?: string[];
+  }
+
+  interface AIResponse {
+    aspect_ratio?: string;
+    high_level_description?: string;
+    background?: string;
+    elements?: AIElement[];
+  }
+
+  const applyProcessedData = useCallback((data: AIResponse) => {
+    const store = useStore.getState();
+
+    if (data.aspect_ratio) {
+      store.setAspectRatio(data.aspect_ratio);
+    } else {
+      const desc = (data.high_level_description || store.highLevelDescription).toLowerCase();
+      if (desc.includes('portrait') || desc.includes('person') || desc.includes('fashion')) {
+        store.setAspectRatio('3:4');
+      } else if (desc.includes('landscape') || desc.includes('cinematic') || desc.includes('wide')) {
+        store.setAspectRatio('21:9');
+      } else if (desc.includes('square') || desc.includes('icon') || desc.includes('logo')) {
+        store.setAspectRatio('1:1');
+      }
+    }
+
+    if (data.high_level_description) store.setHighLevelDescription(data.high_level_description);
+    if (data.background) store.setBackground(data.background);
+
+    store.clearAll();
+
+    if (Array.isArray(data.elements)) {
+      const sorted = [...data.elements].sort((a, b) => (a.y || 0) - (b.y || 0));
+
+      for (const el of sorted) {
+        store.addElement(
+          el.type === 'text' ? 'text' : 'obj',
+          el.x || 0.1,
+          el.y || 0.1,
+          el.w || 0.25,
+          el.h || 0.2
+        );
+        const currentElements = useStore.getState().elements;
+        const added = currentElements[currentElements.length - 1];
+        if (added) {
+          store.updateElement(added.id, {
+            desc: el.desc || '',
+            text: el.text || '',
+            palette: Array.isArray(el.color_palette) ? el.color_palette : [],
+          });
+        }
+      }
+    }
+  }, []);
+
+  const applySeedFallback = useCallback((desc: string) => {
+    const store = useStore.getState();
+    store.clearAll();
+
+    const layouts = [
+      [
+        { type: 'obj' as const, label: 'Subject', x: 0.3, y: 0.1, w: 0.4, h: 0.7, desc: desc },
+        { type: 'obj' as const, label: 'Left Detail', x: 0.05, y: 0.2, w: 0.2, h: 0.3, desc: 'Supporting detail on the left' },
+        { type: 'obj' as const, label: 'Right Detail', x: 0.75, y: 0.5, w: 0.2, h: 0.3, desc: 'Supporting detail on the right' },
+      ],
+      [
+        { type: 'obj' as const, label: 'Top Left', x: 0.05, y: 0.05, w: 0.42, h: 0.42, desc: desc },
+        { type: 'obj' as const, label: 'Top Right', x: 0.53, y: 0.05, w: 0.42, h: 0.42, desc: 'Complementary element' },
+        { type: 'obj' as const, label: 'Bottom Left', x: 0.05, y: 0.53, w: 0.42, h: 0.42, desc: 'Additional detail' },
+        { type: 'obj' as const, label: 'Bottom Right', x: 0.53, y: 0.53, w: 0.42, h: 0.42, desc: 'Background element' },
+      ],
+    ];
+
+    const layout = layouts[Math.floor(Math.random() * layouts.length)];
+    for (const el of layout) {
+      store.addElement(el.type, el.x, el.y, el.w, el.h);
+      const currentElements = useStore.getState().elements;
+      const added = currentElements[currentElements.length - 1];
+      if (added) {
+        store.updateElement(added.id, { desc: el.desc, label: el.label });
+      }
+    }
+
+    store.setBackground('A natural environment matching the scene description.');
+  }, []);
+
+  // Auto-Process: takes the high level description and generates a suggested layout
+  const handleProcess = useCallback(async () => {
+    const desc = highLevelDescription.trim();
+    if (!desc) {
+      setProcessStatus('Enter a scene description first');
+      setTimeout(() => setProcessStatus(''), 3000);
+      return;
+    }
+
+    setProcessing(true);
+    setProcessStatus('Processing...');
+
+    try {
+      const settings = useStore.getState().settings;
+
+      if (settings.apiKey) {
+        let responseText = '';
+
+        if (settings.provider === 'gemini') {
+          // Gemini API v1beta generateContent — key as query parameter
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`;
+          const systemPrompt = `You are a scene layout expert for Ideogram-4 image generation. Given a text description, produce a JSON object with:
+- "aspect_ratio": the best aspect ratio for this scene (choose from: 16:9, 9:16, 1:1, 4:5, 3:2, 2:3, 4:3, 3:4, 21:9, 5:4)
+- "high_level_description": a refined one-sentence description
+- "background": the scene background only (walls, floor, sky, etc.)
+- "elements": an array of 3-6 elements to place in the scene. Each element has:
+  - "type": "obj" or "text"
+  - "desc": what it is (10-30 words)
+  - "x", "y", "w", "h": fractional position (0-1). Elements should NOT overlap. Distribute them sensibly across the frame.
+  - "color_palette": 1-3 hex colors (uppercase) that suit the element
+
+Return ONLY the JSON, no explanation. The JSON must be parseable.`;
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: systemPrompt + '\n\nScene description: ' + desc }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+            }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(`Gemini API error (${res.status}): ${errData?.error?.message || 'Unknown error'}`);
+          }
+
+          const data = await res.json();
+          responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+          // OpenAI API
+          const endpoint = 'https://api.openai.com/v1/chat/completions';
+          const systemPrompt = `You are a scene layout expert for Ideogram-4 image generation. Given a text description, produce a JSON object with:
+- "aspect_ratio": the best aspect ratio for this scene (choose from: 16:9, 9:16, 1:1, 4:5, 3:2, 2:3, 4:3, 3:4, 21:9, 5:4)
+- "high_level_description": a refined one-sentence description
+- "background": the scene background only (walls, floor, sky, etc.)
+- "elements": an array of 3-6 elements to place in the scene. Each element has:
+  - "type": "obj" or "text"
+  - "desc": what it is (10-30 words)
+  - "x", "y", "w", "h": fractional position (0-1). Elements should NOT overlap.
+  - "color_palette": 1-3 hex colors (uppercase)
+
+Return ONLY the JSON, no explanation.`;
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${settings.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: settings.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: desc },
+              ],
+              temperature: 0.7,
+              max_tokens: 2048,
+            }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(`OpenAI API error (${res.status}): ${errData?.error?.message || 'Unknown error'}`);
+          }
+
+          const data = await res.json();
+          responseText = data.choices?.[0]?.message?.content || '';
+        }
+
+        if (responseText) {
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            applyProcessedData(parsed);
+            setProcessStatus('AI layout generated!');
+          } else {
+            throw new Error('AI response did not contain valid JSON');
+          }
+        } else {
+          throw new Error('Empty response from AI');
+        }
+      } else {
+        applySeedFallback(desc);
+        setProcessStatus('No API key — using seed layout');
+      }
+    } catch (err: any) {
+      console.error('Process failed, using fallback:', err);
+      applySeedFallback(desc);
+      setProcessStatus('API failed — using fallback layout. ' + (err?.message || ''));
+    }
+
+    setProcessing(false);
+    setTimeout(() => setProcessStatus(''), 6000);
+  }, [highLevelDescription, applyProcessedData, applySeedFallback]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Top Bar */}
+      <TopBar
+        onOpenImport={() => setImportOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onProcess={handleProcess}
+        processing={processing}
+      />
+
+      {/* Process status */}
+      {processStatus && (
+        <div className={`px-4 py-1.5 text-xs font-medium text-center ${
+          processStatus.includes('failed') || processStatus.includes('error')
+            ? 'bg-red-500/20 text-red-300 border-b border-red-500/30'
+            : processStatus.includes('seed') || processStatus.includes('fallback')
+            ? 'bg-amber-500/20 text-amber-300 border-b border-amber-500/30'
+            : 'bg-cyan-500/20 text-cyan-300 border-b border-cyan-500/30'
+        }`}>
+          {processStatus}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {/* Main content: 3-column layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel — Description + Style */}
+        <div className="w-72 flex-shrink-0 border-r border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-slate-700 space-y-2">
+            <div>
+              <label className="block text-[10px] uppercase text-slate-500 mb-1">Scene Description</label>
+              <textarea
+                value={highLevelDescription}
+                onChange={(e) => setHighLevelDescription(e.target.value)}
+                rows={2}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 resize-none"
+                placeholder="Describe your scene in one sentence..."
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase text-slate-500 mb-1">Background</label>
+              <input
+                type="text"
+                value={background}
+                onChange={(e) => setBackground(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                placeholder="e.g. A smooth matte gray wall and polished floor..."
+              />
+            </div>
+          </div>
+
+          {/* Style Panel */}
+          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+            <StylePanel />
+          </div>
         </div>
-      </main>
+
+        {/* Center — Canvas */}
+        <div ref={centerRef} className="flex-1 p-4 bg-slate-950 overflow-hidden">
+          <Canvas width={canvasDims.width} height={canvasDims.height} />
+        </div>
+
+        {/* Right Panel — Inspector + Layers */}
+        <div className="w-72 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar border-b border-slate-700">
+            <div className="p-2 border-b border-slate-800">
+              <h3 className="text-[10px] uppercase text-slate-500 font-semibold px-1">Inspector</h3>
+            </div>
+            <Inspector />
+          </div>
+          <div className="h-56 overflow-y-auto custom-scrollbar">
+            <div className="p-2 border-b border-slate-800">
+              <h3 className="text-[10px] uppercase text-slate-500 font-semibold px-1">Layers</h3>
+            </div>
+            <Layers />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom — JSON Panel */}
+      <JsonPanel />
+
+      {/* Modals */}
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
